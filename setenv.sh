@@ -34,23 +34,19 @@ else
     pip3 install --no-input torch-2.6.0+rocm6.4.1.git1ded221d-cp312-cp312-linux_x86_64.whl
     pip3 install --no-input torchvision-0.21.0+rocm6.4.1.git4040d51f-cp312-cp312-linux_x86_64.whl
     pip3 install --no-input torchaudio-2.6.0+rocm6.4.1.gitd8831425-cp312-cp312-linux_x86_64.whl
+    pip3 install --no-input onnxruntime-rocm -f https://repo.radeon.com/rocm/manylinux/rocm-rel-6.4.1/
 
-    # install migraphx
-    # taken from https://rocm.docs.amd.com/projects/radeon/en/latest/docs/install/native_linux/install-migraphx.html
+    # install flash attention for rocm
+    pip install triton==3.3.0
+    cd venv/
+    git clone --recursive git@github.com:ROCm/flash-attention.git
+    cd flash-attention
+    git checkout main_perf
+    export FLASH_ATTENTION_TRITON_AMD_ENABLE="TRUE" 
+    export BUILD_TYPE="rocm"
+    python setup.py install
+    cd ..
 
-    # Setup pythonpath for migraphx module
-    export PYTHONPATH=/opt/rocm/lib:$PYTHONPATH
-
-    #setup instructions for torch_migraphx module
-    git clone https://github.com/ROCmSoftwarePlatform/torch_migraphx.git ./venv/torch_migraphx
-    cd ./venv/torch_migraphx/py
-    export TORCH_CMAKE_PATH=$(python -c "import torch; print(torch.utils.cmake_prefix_path)")
-    pip install --no-input .
-    cd ../../../
-    # install onnx runtime
-    # taken from https://rocm.docs.amd.com/projects/radeon/en/latest/docs/install/native_linux/install-onnx.html
-    pip3 install --no-input onnxruntime-rocm -f https://repo.radeon.com/rocm/manylinux/rocm-rel-6.3.4/
 fi
 
-
-pip3 install   
+   

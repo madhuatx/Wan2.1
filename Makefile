@@ -95,7 +95,6 @@ venv: clean ## create and initialize venv environment
 	source venv/bin/activate; \
 	pip install --no-input --upgrade pip; \
 	pip install --no-input -r requirements.txt; \
-	pip install --no-input -r requirements_dev.txt; \
 	pip install --no-input -e .; \
 	./setenv.sh
 	@echo

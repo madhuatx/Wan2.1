@@ -11,6 +11,7 @@ import numpy as np
 from pathlib import Path
 import logging
 from typing import List, Tuple, Optional
+from skimage.metrics import peak_signal_noise_ratio, structural_similarity
 
 # Add project root to path
 project_root = Path(__file__).parent.parent
@@ -166,6 +167,126 @@ def debug_tensor_info(tensor: torch.Tensor, name: str):
                 f"device={tensor.device}")
 
 
+def calculate_quality_metrics(original: np.ndarray, reconstructed: np.ndarray) -> dict:
+    """
+    Calculate quality metrics between original and reconstructed videos.
+    
+    Args:
+        original: numpy array of shape (T, H, W, C) in range [0, 255]
+        reconstructed: numpy array of shape (T, H, W, C) in range [0, 255]
+    
+    Returns:
+        dict: Dictionary containing PSNR, SSIM, and RMS error metrics
+    """
+    logger.info("Calculating quality metrics...")
+    
+    # Ensure both arrays have the same shape (use minimum frame count)
+    min_frames = min(original.shape[0], reconstructed.shape[0])
+    original_cropped = original[:min_frames]
+    reconstructed_cropped = reconstructed[:min_frames]
+    
+    logger.info(f"Comparing {min_frames} frames: original {original_cropped.shape} vs reconstructed {reconstructed_cropped.shape}")
+    
+    # Initialize metrics
+    psnr_values = []
+    ssim_values = []
+    rms_errors = []
+    
+    # Calculate metrics for each frame
+    for i in range(min_frames):
+        orig_frame = original_cropped[i]
+        recon_frame = reconstructed_cropped[i]
+        
+        # Convert to grayscale for SSIM (or use luminance channel)
+        if orig_frame.shape[2] == 3:
+            # Convert RGB to grayscale using luminance formula
+            orig_gray = 0.299 * orig_frame[:, :, 0] + 0.587 * orig_frame[:, :, 1] + 0.114 * orig_frame[:, :, 2]
+            recon_gray = 0.299 * recon_frame[:, :, 0] + 0.587 * recon_frame[:, :, 1] + 0.114 * recon_frame[:, :, 2]
+        else:
+            orig_gray = orig_frame[:, :, 0]
+            recon_gray = recon_frame[:, :, 0]
+        
+        # Calculate PSNR
+        psnr = peak_signal_noise_ratio(orig_frame, recon_frame, data_range=255)
+        psnr_values.append(psnr)
+        
+        # Calculate SSIM
+        ssim = structural_similarity(orig_gray, recon_gray, data_range=255)
+        ssim_values.append(ssim)
+        
+        # Calculate RMS error
+        rms = np.sqrt(np.mean((orig_frame.astype(np.float32) - recon_frame.astype(np.float32)) ** 2))
+        rms_errors.append(rms)
+    
+    # Calculate average metrics
+    avg_psnr = np.mean(psnr_values)
+    avg_ssim = np.mean(ssim_values)
+    avg_rms = np.mean(rms_errors)
+    
+    # Calculate per-channel metrics
+    channel_metrics = {}
+    for ch in range(original_cropped.shape[3]):
+        orig_channel = original_cropped[:, :, :, ch]
+        recon_channel = reconstructed_cropped[:, :, :, ch]
+        
+        ch_psnr = np.mean([peak_signal_noise_ratio(orig_channel[i], recon_channel[i], data_range=255) 
+                           for i in range(min_frames)])
+        ch_ssim = np.mean([structural_similarity(orig_channel[i], recon_channel[i], data_range=255) 
+                           for i in range(min_frames)])
+        ch_rms = np.sqrt(np.mean((orig_channel.astype(np.float32) - recon_channel.astype(np.float32)) ** 2))
+        
+        channel_metrics[f'channel_{ch}'] = {
+            'psnr': ch_psnr,
+            'ssim': ch_ssim,
+            'rms': ch_rms
+        }
+    
+    metrics = {
+        'overall': {
+            'psnr': avg_psnr,
+            'ssim': avg_ssim,
+            'rms': avg_rms
+        },
+        'per_frame': {
+            'psnr': psnr_values,
+            'ssim': ssim_values,
+            'rms': rms_errors
+        },
+        'per_channel': channel_metrics,
+        'frame_count': min_frames
+    }
+    
+    return metrics
+
+
+def print_quality_metrics(metrics: dict):
+    """Print quality metrics in a formatted way."""
+    logger.info("=" * 50)
+    logger.info("QUALITY METRICS COMPARISON")
+    logger.info("=" * 50)
+    
+    overall = metrics['overall']
+    logger.info(f"Overall Metrics (averaged over {metrics['frame_count']} frames):")
+    logger.info(f"  PSNR: {overall['psnr']:.2f} dB")
+    logger.info(f"  SSIM: {overall['ssim']:.4f}")
+    logger.info(f"  RMS Error: {overall['rms']:.2f}")
+    
+    logger.info("\nPer-Channel Metrics:")
+    for ch_name, ch_metrics in metrics['per_channel'].items():
+        logger.info(f"  {ch_name.upper()}: PSNR={ch_metrics['psnr']:.2f}dB, "
+                   f"SSIM={ch_metrics['ssim']:.4f}, RMS={ch_metrics['rms']:.2f}")
+    
+    # Print frame-by-frame metrics for first few frames
+    logger.info("\nFrame-by-Frame Metrics (first 5 frames):")
+    for i in range(min(5, metrics['frame_count'])):
+        logger.info(f"  Frame {i+1}: PSNR={metrics['per_frame']['psnr'][i]:.2f}dB, "
+                   f"SSIM={metrics['per_frame']['ssim'][i]:.4f}, "
+                   f"RMS={metrics['per_frame']['rms'][i]:.2f}")
+    
+    if metrics['frame_count'] > 5:
+        logger.info(f"  ... (showing first 5 of {metrics['frame_count']} frames)")
+
+
 def main():
     """Main test function."""
     # Configuration
@@ -242,6 +363,12 @@ def main():
         # Save original video for comparison
         original_output_path = output_dir / "original_video.mp4"
         save_video(frames, str(original_output_path), fps=fps)
+        
+        # 7. Calculate quality metrics
+        logger.info("=" * 50)
+        logger.info("STEP 7: Calculating quality metrics")
+        quality_metrics = calculate_quality_metrics(frames, reconstructed_frames)
+        print_quality_metrics(quality_metrics)
         
         logger.info("=" * 50)
         logger.info("TEST COMPLETED SUCCESSFULLY!")

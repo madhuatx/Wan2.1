@@ -19,6 +19,70 @@ sys.path.insert(0, str(project_root))
 
 from wan.modules.vae import WanVAE
 
+
+class DebugWanVAE:
+    """Wrapper around WanVAE that prints tensor shapes at each layer."""
+    
+    def __init__(self, vae: WanVAE):
+        self.vae = vae
+        self.layer_shapes = []
+        
+    def _hook_fn(self, module, input_tensor, output_tensor):
+        """Hook function to capture tensor shapes."""
+        if isinstance(input_tensor, tuple):
+            input_shape = input_tensor[0].shape
+        else:
+            input_shape = input_tensor.shape
+            
+        if isinstance(output_tensor, tuple):
+            output_shape = output_tensor[0].shape
+        else:
+            output_shape = output_tensor.shape
+            
+        layer_name = module.__class__.__name__
+        self.layer_shapes.append({
+            'layer': layer_name,
+            'input_shape': input_shape,
+            'output_shape': output_shape
+        })
+        logger.info(f"  {layer_name}: {input_shape} -> {output_shape}")
+    
+    def register_hooks(self):
+        """Register hooks on all layers."""
+        logger.info("Registering hooks on VAE layers...")
+        
+        # Register hooks on encoder
+        for name, module in self.vae.model.encoder.named_modules():
+            if isinstance(module, (torch.nn.Conv3d, torch.nn.Conv2d, torch.nn.Linear, 
+                                 torch.nn.Upsample, torch.nn.Sequential)):
+                module.register_forward_hook(self._hook_fn)
+        
+        # Register hooks on decoder
+        for name, module in self.vae.model.decoder.named_modules():
+            if isinstance(module, (torch.nn.Conv3d, torch.nn.Conv2d, torch.nn.Linear, 
+                                 torch.nn.Upsample, torch.nn.Sequential)):
+                module.register_forward_hook(self._hook_fn)
+    
+    def encode(self, videos):
+        """Encode with shape tracking."""
+        logger.info("=" * 50)
+        logger.info("ENCODER LAYER SHAPES:")
+        logger.info("=" * 50)
+        self.layer_shapes = []  # Reset for each encode
+        result = self.vae.encode(videos)
+        logger.info(f"Encoder output shape: {result[0].shape}")
+        return result
+    
+    def decode(self, zs):
+        """Decode with shape tracking."""
+        logger.info("=" * 50)
+        logger.info("DECODER LAYER SHAPES:")
+        logger.info("=" * 50)
+        self.layer_shapes = []  # Reset for each decode
+        result = self.vae.decode(zs)
+        logger.info(f"Decoder output shape: {result[0].shape}")
+        return result
+
 # Configure logging
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 logger = logging.getLogger(__name__)
@@ -294,6 +358,7 @@ def main():
     vae_checkpoint_path = str(project_root / "Wan2.1-T2V-1.3B" / "Wan2.1_VAE.pth")
     output_dir = project_root / "output"
     max_frames = 16  # Limit for testing
+    debug_layers = True  # Enable layer-by-layer debugging
     
     # Check if files exist
     if not os.path.exists(video_path):
@@ -332,6 +397,12 @@ def main():
             device=str(device)
         )
         logger.info("VAE model loaded successfully")
+        
+        # Create debug wrapper if enabled
+        if debug_layers:
+            debug_vae = DebugWanVAE(vae)
+            debug_vae.register_hooks()
+            vae = debug_vae
         
         # 4. Encode video
         logger.info("=" * 50)

@@ -397,7 +397,67 @@ def main():
             device=str(device)
         )
         logger.info("VAE model loaded successfully")
-        
+
+        # 3.5. Print detailed model configuration (before debug wrapper)
+        logger.info("=" * 50)
+        logger.info("STEP 3.5: MODEL CONFIGURATION DETAILS")
+        logger.info("=" * 50)
+        vae_model = vae.model
+        def print_model_config(model, model_name="VAE Model"):
+            """Print detailed configuration of a model."""
+            logger.info(f"\n{model_name} Configuration:")
+            logger.info(f"  Model Type: {type(model).__name__}")
+            try:
+                device = next(model.parameters()).device
+                dtype = next(model.parameters()).dtype
+                logger.info(f"  Device: {device}")
+                logger.info(f"  Dtype: {dtype}")
+                # Count parameters
+                total_params = sum(p.numel() for p in model.parameters())
+                trainable_params = sum(p.numel() for p in model.parameters() if p.requires_grad)
+                logger.info(f"  Total Parameters: {total_params:,}")
+                logger.info(f"  Trainable Parameters: {trainable_params:,}")
+                logger.info(f"  Non-trainable Parameters: {total_params - trainable_params:,}")
+                # Model structure
+                logger.info(f"\n{model_name} Architecture:")
+                for name, module in model.named_children():
+                    module_params = sum(p.numel() for p in module.parameters())
+                    logger.info(f"  {name}: {type(module).__name__} ({module_params:,} params)")
+                    # Detailed breakdown for major components
+                    if name in ['encoder', 'decoder']:
+                        for sub_name, sub_module in module.named_children():
+                            sub_params = sum(p.numel() for p in sub_module.parameters())
+                            logger.info(f"    {name}.{sub_name}: {type(sub_module).__name__} ({sub_params:,} params)")
+                # Configuration attributes
+                if hasattr(model, 'dim'):
+                    logger.info(f"\n{model_name} Configuration Attributes:")
+                    logger.info(f"  Base Dimension: {model.dim}")
+                    logger.info(f"  Z Dimension: {model.z_dim}")
+                    logger.info(f"  Dimension Multipliers: {model.dim_mult}")
+                    logger.info(f"  Number of Residual Blocks: {model.num_res_blocks}")
+                    logger.info(f"  Attention Scales: {model.attn_scales}")
+                    logger.info(f"  Temporal Downsample: {model.temperal_downsample}")
+                    logger.info(f"  Temporal Upsample: {getattr(model, 'temperal_upsample', 'N/A')}")
+                    logger.info(f"  Dropout: {getattr(model, 'dropout', 'N/A')}")
+            except Exception as e:
+                logger.warning(f"Could not analyze {model_name}: {e}")
+        # Print configuration for the main VAE model
+        print_model_config(vae_model, "WanVAE_")
+        # Print configuration for encoder and decoder separately
+        if hasattr(vae_model, 'encoder'):
+            print_model_config(vae_model.encoder, "Encoder")
+        if hasattr(vae_model, 'decoder'):
+            print_model_config(vae_model.decoder, "Decoder")
+        # Print VAE wrapper configuration
+        logger.info("\nWanVAE Wrapper Configuration:")
+        logger.info(f"  Z Dimension: {vae_model.z_dim}")
+        logger.info(f"  Dtype: {vae.dtype}")
+        logger.info(f"  Device: {vae.device}")
+        logger.info(f"  Mean Scale Shape: {vae.mean.shape}")
+        logger.info(f"  Std Scale Shape: {vae.std.shape}")
+        logger.info(f"  Mean Values: {vae.mean.tolist()}")
+        logger.info(f"  Std Values: {vae.std.tolist()}")
+
         # Create debug wrapper if enabled
         if debug_layers:
             debug_vae = DebugWanVAE(vae)

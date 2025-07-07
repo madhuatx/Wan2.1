@@ -396,8 +396,7 @@ def main():
             dtype=torch.float16,  # Changed to float16 for all operations
             device=str(device)
         )
-        logger.info("VAE model loaded successfully")
-
+        logger.info(f"VAE model loaded successfully onto {str(device)}")
         # 3.5. Print detailed model configuration (before debug wrapper)
         logger.info("=" * 50)
         logger.info("STEP 3.5: MODEL CONFIGURATION DETAILS")

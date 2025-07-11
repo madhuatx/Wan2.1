@@ -610,10 +610,11 @@ def _video_vae(pretrained_path=None, z_dim=None, device='cpu', **kwargs):
 
     # load checkpoint
     logging.info(f'loading {pretrained_path}')
-    checkpoint = torch.load(pretrained_path, map_location=device)
+    state_dict = torch.load(pretrained_path, map_location=device)
+    logging.info(f"Loaded state_dict of type: {type(state_dict)}")
     
     # Load state dict and capture missing/unexpected keys
-    load_result = model.load_state_dict(checkpoint, assign=True)
+    load_result = model.load_state_dict(state_dict, assign=True)
     
     # Report missing and unexpected keys
     if hasattr(load_result, 'missing_keys') and load_result.missing_keys:

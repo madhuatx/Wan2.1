@@ -111,9 +111,11 @@ def load_video_frames(video_path: str, max_frames: Optional[int] = None) -> Tupl
     
     fps = cap.get(cv2.CAP_PROP_FPS)
     frame_count = int(cap.get(cv2.CAP_PROP_FRAME_COUNT))
+    logger.info(f"Video has {frame_count} frames")
     
     if max_frames:
         frame_count = min(frame_count, max_frames)
+        logger.info(f"Limiting frame count to {frame_count}")
     
     frames = []
     for i in range(frame_count):
@@ -357,7 +359,7 @@ def main():
     video_path = "/home/madsrini/develop/diffusion-forcing-transformer/data/real-estate-10k-mini/test_256/2a1769dddc1dbf8d.mp4"
     vae_checkpoint_path = str(project_root / "Wan2.1-T2V-1.3B" / "Wan2.1_VAE.pth")
     output_dir = project_root / "output"
-    max_frames = 16  # Limit for testing
+    max_frames = 279  # Limit for testing
     debug_layers = True  # Enable layer-by-layer debugging
     
     # Check if files exist

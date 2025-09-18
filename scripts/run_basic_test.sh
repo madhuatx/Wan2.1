@@ -47,3 +47,9 @@ echo ""
 echo "Basic test completed!"
 echo "If successful, the model is ready for full generation testing."
 
+
+
+
+
+
+

@@ -452,6 +452,25 @@ class WanModel(ModelMixin, ConfigMixin):
         self.cross_attn_norm = cross_attn_norm
         self.eps = eps
 
+        # INSERT_YOUR_CODE
+        print("WanModel parameters:")
+        print(f"  model_type: {self.model_type}")
+        print(f"  patch_size: {self.patch_size}")
+        print(f"  text_len: {self.text_len}")
+        print(f"  in_dim: {self.in_dim}")
+        print(f"  dim: {self.dim}")
+        print(f"  ffn_dim: {self.ffn_dim}")
+        print(f"  freq_dim: {self.freq_dim}")
+        print(f"  text_dim: {self.text_dim}")
+        print(f"  out_dim: {self.out_dim}")
+        print(f"  num_heads: {self.num_heads}")
+        print(f"  num_layers: {self.num_layers}")
+        print(f"  window_size: {self.window_size}")
+        print(f"  qk_norm: {self.qk_norm}")
+        print(f"  cross_attn_norm: {self.cross_attn_norm}")
+        print(f"  eps: {self.eps}")
+
+        sys.exit(0)
         # embeddings
         self.patch_embedding = nn.Conv3d(
             in_dim, dim, kernel_size=patch_size, stride=patch_size)
